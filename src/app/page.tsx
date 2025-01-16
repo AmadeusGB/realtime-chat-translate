@@ -34,7 +34,6 @@ export default function Home() {
 
   useEffect(() => {
     if (audioStream) {
-      console.log('Setting up audio element for stream:', audioStream.id);
       
       // 清理现有的音频元素
       if (audioElementRef.current) {
@@ -45,7 +44,6 @@ export default function Home() {
       }
 
       // 创建新的音频元素
-      console.log('Creating new audio element...');
       const audioElement = document.createElement('audio');
       audioElement.srcObject = audioStream;
       audioElement.autoplay = true;
@@ -61,10 +59,7 @@ export default function Home() {
       document.body.appendChild(audioElement);
       audioElementRef.current = audioElement;
 
-      console.log('Audio element setup complete');
-
       return () => {
-        console.log('Cleaning up audio element...');
         if (audioElementRef.current) {
           audioElementRef.current.srcObject = null;
           document.body.removeChild(audioElementRef.current);

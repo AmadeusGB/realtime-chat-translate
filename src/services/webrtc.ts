@@ -8,7 +8,6 @@ export class WebRTCService {
   }
 
   private initialize() {
-    console.log('Initializing WebRTC service...');
     // 确保清理旧的连接
     if (this.peerConnection) {
       this.peerConnection.close();
@@ -22,31 +21,24 @@ export class WebRTCService {
     // 重新绑定 ontrack 事件
     if (this.onTrackCallback) {
       this.peerConnection.ontrack = (event) => {
-        console.log('Received remote track:', event.streams[0].id);
         this.onTrackCallback?.(event.streams[0]);
       };
     }
   }
 
   public async connect() {
-    console.log('Starting new WebRTC connection...');
     this.initialize();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Got local media stream');
-
       stream.getTracks().forEach(track => {
         if (this.peerConnection) {
           this.peerConnection.addTrack(track, stream);
-          console.log('Added local track to connection');
         }
       });
 
       const offer = await this.peerConnection!.createOffer();
       await this.peerConnection!.setLocalDescription(offer);
-      console.log('Set local description');
-
       // 发送 SDP offer
       const response = await fetch('/api/rtc-connect', {
         method: 'POST',
@@ -68,7 +60,6 @@ export class WebRTCService {
       });
 
       await this.peerConnection!.setRemoteDescription(answer);
-      console.log('Set remote description');
     } catch (error) {
       console.error('Connection failed:', error);
       this.disconnect();
@@ -77,8 +68,6 @@ export class WebRTCService {
   }
 
   public disconnect() {
-    console.log('Disconnecting WebRTC...');
-    
     // 停止所有轨道
     if (this.peerConnection) {
       this.peerConnection.getSenders().forEach(sender => {
@@ -105,7 +94,6 @@ export class WebRTCService {
   }
 
   public onTrack(callback: (stream: MediaStream) => void) {
-    console.log('Setting up onTrack callback');
     this.onTrackCallback = callback;
     
     // 如果已经有连接，立即设置回调

@@ -11,11 +11,9 @@ export function useWebRTC() {
 
   // 重置所有状态和连接
   const resetConnection = useCallback(() => {
-    console.log('Resetting WebRTC connection...');
     
     // 清理现有的音频流
     if (audioStream) {
-      console.log('Stopping existing audio tracks...');
       audioStream.getTracks().forEach(track => {
         track.stop();
         console.log(`Track ${track.id} stopped`);
@@ -23,7 +21,6 @@ export function useWebRTC() {
     }
 
     // 重新初始化 WebRTC 服务
-    console.log('Reinitializing WebRTC service...');
     webRTCServiceRef.current = getWebRTCService();
     
     // 重置状态
@@ -35,7 +32,6 @@ export function useWebRTC() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    console.log('Setting up WebRTC service...');
     const webRTCService = webRTCServiceRef.current;
     
     webRTCService.onTrack((stream) => {
@@ -51,15 +47,12 @@ export function useWebRTC() {
 
   const connect = useCallback(async () => {
     try {
-      console.log('Attempting to connect...');
-      
       // 在新连接前重置所有状态
       resetConnection();
       
       const webRTCService = webRTCServiceRef.current;
       await webRTCService.connect();
       
-      console.log('Connection established successfully');
       setIsConnected(true);
     } catch (err) {
       console.error('Connection failed:', err);
@@ -71,15 +64,12 @@ export function useWebRTC() {
 
   const disconnect = useCallback(() => {
     try {
-      console.log('Disconnecting...');
       const webRTCService = webRTCServiceRef.current;
       
       // 停止所有音频轨道
       if (audioStream) {
-        console.log('Stopping audio tracks...');
         audioStream.getTracks().forEach(track => {
           track.stop();
-          console.log(`Track ${track.id} stopped`);
         });
       }
       
@@ -89,7 +79,6 @@ export function useWebRTC() {
       // 重置所有状态
       resetConnection();
       
-      console.log('Disconnected successfully');
     } catch (err) {
       console.error('Disconnect failed:', err);
       setError(err instanceof Error ? err : new Error('Failed to disconnect'));
