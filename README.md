@@ -6,7 +6,7 @@
 
 - MacBook (M1芯片)
 - Node.js 18+
-- pnpm 包管理器
+- Yarn 包管理器
 - BlackHole 2ch 虚拟声卡
 
 ## 安装步骤
@@ -26,11 +26,13 @@ brew install blackhole-2ch
 ### 2. 安装项目依赖
 
 ```bash
-# 安装 pnpm（如果未安装）
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+# 安装 Yarn（如果未安装）
+brew install yarn
+# 或者
+npm install -g yarn
 
 # 安装项目依赖
-pnpm install
+yarn install
 ```
 
 ### 3. 配置环境变量
@@ -44,7 +46,7 @@ OPENAI_API_KEY=你的OpenAI API密钥
 
 ```bash
 # 启动开发服务器
-pnpm dev
+yarn dev
 ```
 
 访问 http://localhost:3000 查看应用。
@@ -65,12 +67,12 @@ pnpm dev
 
 1. 构建生产版本：
 ```bash
-pnpm build
+yarn build
 ```
 
 2. 启动生产服务器：
 ```bash
-pnpm start
+yarn start
 ```
 
 ## 常见问题
