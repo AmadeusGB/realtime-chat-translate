@@ -3,6 +3,7 @@ export class WebRTCService {
   private dataChannel: RTCDataChannel | null = null;
   private onTrackCallback: ((stream: MediaStream) => void) | null = null;
   private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
+  private mediaStream: MediaStream | null = null;
 
   constructor() {
     // 确保只在浏览器环境中初始化
@@ -57,13 +58,17 @@ export class WebRTCService {
     this.initialize();
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => {
-        if (this.peerConnection) {
-          this.peerConnection.addTrack(track, stream);
-        }
+      // 获取麦克风权限
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // 先将所有音轨设置为禁用状态
+      this.mediaStream.getAudioTracks().forEach(track => {
+        track.enabled = false;
+        // 重要：将音轨添加到PeerConnection
+        this.peerConnection?.addTrack(track, this.mediaStream!);
       });
 
+      // 创建offer并建立连接
       const offer = await this.peerConnection!.createOffer();
       await this.peerConnection!.setLocalDescription(offer);
       // 发送 SDP offer
@@ -134,6 +139,22 @@ export class WebRTCService {
 
   public onConnectionStateChange(callback: (state: RTCPeerConnectionState) => void) {
     this.onConnectionStateChangeCallback = callback;
+  }
+
+  public enableAudio() {
+    if (this.mediaStream) {
+      this.mediaStream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
+    }
+  }
+
+  public disableAudio() {
+    if (this.mediaStream) {
+      this.mediaStream.getAudioTracks().forEach(track => {
+        track.enabled = false;
+      });
+    }
   }
 }
 

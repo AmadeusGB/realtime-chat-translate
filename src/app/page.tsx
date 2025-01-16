@@ -5,7 +5,7 @@ import AudioControls from '@/components/AudioControls';
 import { useWebRTC } from '@/hooks/useWebRTC';
 
 export default function Home() {
-  const { isConnected, error, connect, disconnect } = useWebRTC();
+  const { isConnected, error, connect, disconnect, startRecording, stopRecording } = useWebRTC();
   const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
@@ -14,12 +14,14 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat && isConnected && !isRecording) {
         setIsRecording(true);
+        startRecording();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space' && isConnected && isRecording) {
         setIsRecording(false);
+        stopRecording();
       }
     };
 
@@ -30,7 +32,7 @@ export default function Home() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isConnected, isRecording]);
+  }, [isConnected, isRecording, startRecording, stopRecording]);
 
   const handleStart = async () => {
     try {

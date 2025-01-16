@@ -129,11 +129,25 @@ export function useWebRTC() {
     }
   }, [audioStream, resetConnection]);
 
+  const startRecording = useCallback(() => {
+    if (webRTCServiceRef.current) {
+      webRTCServiceRef.current.enableAudio();
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (webRTCServiceRef.current) {
+      webRTCServiceRef.current.disableAudio();
+    }
+  }, []);
+
   return {
     isConnected,
     audioStream,
     error,
     connect,
     disconnect,
+    startRecording,
+    stopRecording,
   };
 }
