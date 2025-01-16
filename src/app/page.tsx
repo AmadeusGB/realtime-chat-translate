@@ -10,11 +10,28 @@ export default function Home() {
   useEffect(() => {
     if (audioStream) {
       const audioElement = document.createElement('audio');
+      
+      // 优化音频元素的配置
       audioElement.srcObject = audioStream;
       audioElement.autoplay = true;
+      
+      // 设置其他重要属性
+      audioElement.setAttribute('playsinline', ''); // 支持iOS内联播放
+      audioElement.muted = false;
+      
+      // 音频优化设置
+      audioElement.volume = 1.0;
+      
+      // 添加事件监听以便调试
+      audioElement.onplay = () => console.log('Audio started playing');
+      audioElement.onpause = () => console.log('Audio paused');
+      audioElement.onerror = (e) => console.error('Audio error:', e);
+      
+      // 将音频元素添加到DOM
       document.body.appendChild(audioElement);
 
       return () => {
+        audioElement.srcObject = null;
         document.body.removeChild(audioElement);
       };
     }
