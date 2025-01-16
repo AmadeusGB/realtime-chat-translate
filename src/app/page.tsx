@@ -1,33 +1,45 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import AudioControls from '@/components/AudioControls';
 
 export default function Home() {
   const { isConnected, audioStream, error, connect, disconnect } = useWebRTC();
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.code === 'Space' && !e.repeat && !isConnected) {
+      e.preventDefault();
+      connect();
+    }
+  }, [connect, isConnected]);
+
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    if (e.code === 'Space' && isConnected) {
+      e.preventDefault();
+      disconnect();
+    }
+  }, [disconnect, isConnected]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp]);
+
   useEffect(() => {
     if (audioStream) {
       const audioElement = document.createElement('audio');
-      
-      // 优化音频元素的配置
       audioElement.srcObject = audioStream;
       audioElement.autoplay = true;
-      
-      // 设置其他重要属性
-      audioElement.setAttribute('playsinline', ''); // 支持iOS内联播放
+      audioElement.setAttribute('playsinline', '');
       audioElement.muted = false;
-      
-      // 音频优化设置
       audioElement.volume = 1.0;
       
-      // 添加事件监听以便调试
-      audioElement.onplay = () => console.log('Audio started playing');
-      audioElement.onpause = () => console.log('Audio paused');
-      audioElement.onerror = (e) => console.error('Audio error:', e);
-      
-      // 将音频元素添加到DOM
       document.body.appendChild(audioElement);
 
       return () => {
@@ -38,14 +50,12 @@ export default function Home() {
   }, [audioStream]);
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">实时语音翻译</h1>
+        <h1 className="text-3xl font-bold mb-12 text-center">实时语音翻译</h1>
         
         <AudioControls 
           isConnected={isConnected}
-          onConnect={connect}
-          onDisconnect={disconnect}
           error={error}
         />
       </div>
