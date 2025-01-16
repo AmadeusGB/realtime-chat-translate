@@ -12,25 +12,17 @@ export default function Home() {
     if (typeof window === 'undefined') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && isConnected && !isRecording) {
-        setIsRecording(true);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && isConnected && isRecording) {
-        setIsRecording(false);
+      if (e.code === 'Space' && !e.repeat && isConnected) {
+        setIsRecording(prev => !prev);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isConnected, isRecording]);
+  }, [isConnected]);
 
   const handleStart = async () => {
     try {

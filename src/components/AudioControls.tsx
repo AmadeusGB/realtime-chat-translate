@@ -48,10 +48,18 @@ export default function AudioControls({
       >
         <div className="text-white text-center">
           <p className="text-lg font-medium mb-2">
-            {isConnected ? (isRecording ? '正在录音...' : '按住空格键说话') : '请点击开始'}
+            {isConnected 
+              ? (isRecording 
+                ? '正在录音...' 
+                : '按空格键开始/停止录音') 
+              : '请点击开始'}
           </p>
           <p className="text-sm opacity-75">
-            {isConnected ? (isRecording ? '松开空格键结束' : 'Press Space') : '等待连接'}
+            {isConnected 
+              ? (isRecording 
+                ? '再次按空格键停止' 
+                : 'Press Space') 
+              : '等待连接'}
           </p>
         </div>
       </div>
