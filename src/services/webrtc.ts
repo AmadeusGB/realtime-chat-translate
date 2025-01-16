@@ -1,223 +1,129 @@
-export interface WebRTCService {
-  connect(): Promise<void>;
-  onTrack(callback: (stream: MediaStream) => void): void;
-  onTranscription(callback: (text: string) => void): void;
-  disconnect(): void;
-}
-
-class WebRTCServiceImpl implements WebRTCService {
-  private peerConnection!: RTCPeerConnection;
-  private dataChannel!: RTCDataChannel;
-  private stream?: MediaStream;
-  private transcriptionCallback?: (text: string) => void;
+export class WebRTCService {
+  private peerConnection: RTCPeerConnection | null = null;
+  private dataChannel: RTCDataChannel | null = null;
+  private onTrackCallback: ((stream: MediaStream) => void) | null = null;
 
   constructor() {
-    if (typeof window === 'undefined') {
-      throw new Error('WebRTC service can only be used in browser environment');
-    }
-    this.initializeConnection();
+    this.initialize();
   }
 
-  private initializeConnection() {
-    console.log('Initializing new connection...');
-    this.peerConnection = new RTCPeerConnection();
-    
-    this.peerConnection.ondatachannel = (event) => {
-      console.log('Received remote data channel');
-      this.dataChannel = event.channel;
-      this.setupDataChannel();
-    };
+  private initialize() {
+    console.log('Initializing WebRTC service...');
+    // 确保清理旧的连接
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
 
-    this.dataChannel = this.peerConnection.createDataChannel('response', {
-      ordered: true
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
-    this.setupDataChannel();
-  }
 
-  private setupDataChannel() {
-    if (!this.dataChannel) {
-      console.error('Data channel is null in setupDataChannel');
-      return;
+    // 重新绑定 ontrack 事件
+    if (this.onTrackCallback) {
+      this.peerConnection.ontrack = (event) => {
+        console.log('Received remote track:', event.streams[0].id);
+        this.onTrackCallback?.(event.streams[0]);
+      };
     }
-
-    console.log('Setting up data channel, current state:', this.dataChannel.readyState);
-    console.log('Has transcription callback:', !!this.transcriptionCallback);
-
-    this.dataChannel.removeEventListener('open', this.handleDataChannelOpen);
-    this.dataChannel.removeEventListener('message', this.handleDataChannelMessage);
-    this.dataChannel.removeEventListener('close', this.handleDataChannelClose);
-    this.dataChannel.removeEventListener('error', this.handleDataChannelError);
-    
-    this.dataChannel.addEventListener('open', this.handleDataChannelOpen);
-    this.dataChannel.addEventListener('message', this.handleDataChannelMessage);
-    this.dataChannel.addEventListener('close', this.handleDataChannelClose);
-    this.dataChannel.addEventListener('error', this.handleDataChannelError);
-
-    console.log('Data channel setup complete, state:', this.dataChannel.readyState);
   }
 
-  private handleDataChannelOpen = () => {
-    console.log('Data channel opened, sending session update...');
-    console.log('Transcription callback status:', !!this.transcriptionCallback);
-    this.configureData();
-  };
+  public async connect() {
+    console.log('Starting new WebRTC connection...');
+    this.initialize();
 
-  private handleDataChannelMessage = async (event: MessageEvent) => {
     try {
-      const msg = JSON.parse(event.data);
-      
-      if (msg.type === 'response.audio_transcript.delta' && msg.text) {
-        console.log('Processing transcription:', msg.text, 'Callback exists:', !!this.transcriptionCallback);
-        if (this.transcriptionCallback) {
-          this.transcriptionCallback(msg.text);
-        }
-      }
-    } catch (error) {
-      console.error('Error handling message:', error);
-    }
-  };
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Got local media stream');
 
-  private handleDataChannelClose = () => {
-    console.log('Data channel closed, transcription callback status:', !!this.transcriptionCallback);
-  };
-
-  private handleDataChannelError = (error: Event) => {
-    console.error('Data channel error:', error);
-  };
-
-  private configureData() {
-    console.log('Configuring data channel, state:', this.dataChannel.readyState);
-    const event = {
-      type: 'session.update',
-      session: {
-        modalities: ['text', 'audio'],
-        tools: [
-          {
-            type: 'function',
-            name: 'transcribeAudio',
-            description: 'Transcribes audio to text',
-            parameters: {
-              type: 'object',
-              properties: {
-                language: { type: 'string', description: 'The language of the audio' },
-              },
-            },
-          },
-        ],
-      },
-    };
-    
-    if (this.dataChannel.readyState === 'open') {
-      this.dataChannel.send(JSON.stringify(event));
-      console.log('Session update sent');
-    } else {
-      console.warn('Data channel not open, state:', this.dataChannel.readyState);
-    }
-  }
-
-  async connect(): Promise<void> {
-    try {
-      console.log('Starting new connection...', 'Has transcription callback:', !!this.transcriptionCallback);
-      
-      if (this.stream) {
-        this.stream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped old track');
-        });
-      }
-      
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Got new media stream');
-      
-      this.stream.getTracks().forEach((track) => {
-        if (this.peerConnection.signalingState !== 'closed') {
-          this.peerConnection.addTransceiver(track, { direction: 'sendrecv' });
-          console.log('Added audio track to connection');
+      stream.getTracks().forEach(track => {
+        if (this.peerConnection) {
+          this.peerConnection.addTrack(track, stream);
+          console.log('Added local track to connection');
         }
       });
 
-      const offer = await this.peerConnection.createOffer();
-      await this.peerConnection.setLocalDescription(offer);
+      const offer = await this.peerConnection!.createOffer();
+      await this.peerConnection!.setLocalDescription(offer);
       console.log('Set local description');
 
+      // 发送 SDP offer
       const response = await fetch('/api/rtc-connect', {
         method: 'POST',
-        body: offer.sdp,
         headers: {
           'Content-Type': 'application/sdp',
         },
+        body: offer.sdp,  // 直接发送 SDP 字符串
       });
 
       if (!response.ok) {
-        throw new Error('Failed to connect to server');
+        throw new Error(`Server error: ${response.status}`);
       }
 
-      const answer = await response.text();
-      await this.peerConnection.setRemoteDescription({
-        sdp: answer,
+      // 获取并设置远程描述
+      const answerSdp = await response.text();
+      const answer = new RTCSessionDescription({
         type: 'answer',
+        sdp: answerSdp,
       });
-      console.log('Set remote description');
 
+      await this.peerConnection!.setRemoteDescription(answer);
+      console.log('Set remote description');
     } catch (error) {
-      console.error('Error connecting WebRTC:', error);
+      console.error('Connection failed:', error);
+      this.disconnect();
       throw error;
     }
   }
 
-  disconnect() {
-    console.log('Starting disconnect process...', 'Has transcription callback:', !!this.transcriptionCallback);
+  public disconnect() {
+    console.log('Disconnecting WebRTC...');
     
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => {
-        track.stop();
-        console.log('Stopped audio track');
+    // 停止所有轨道
+    if (this.peerConnection) {
+      this.peerConnection.getSenders().forEach(sender => {
+        if (sender.track) {
+          sender.track.stop();
+        }
       });
-      this.stream = undefined;
     }
-    
+
+    // 关闭数据通道
     if (this.dataChannel) {
       this.dataChannel.close();
-      console.log('Closed data channel');
+      this.dataChannel = null;
     }
-    
+
+    // 关闭连接
     if (this.peerConnection) {
       this.peerConnection.close();
-      console.log('Closed peer connection');
+      this.peerConnection = null;
     }
+
+    // 重新初始化服务
+    this.initialize();
+  }
+
+  public onTrack(callback: (stream: MediaStream) => void) {
+    console.log('Setting up onTrack callback');
+    this.onTrackCallback = callback;
     
-    this.initializeConnection();
-    console.log('Initialized new connection, transcription callback status:', !!this.transcriptionCallback);
-  }
-
-  onTrack(callback: (stream: MediaStream) => void) {
-    this.peerConnection.ontrack = (event) => {
-      console.log('Received remote track');
-      callback(event.streams[0]);
-    };
-  }
-
-  onTranscription(callback: (text: string) => void) {
-    console.log('Setting transcription callback');
-    this.transcriptionCallback = callback;
+    // 如果已经有连接，立即设置回调
+    if (this.peerConnection) {
+      this.peerConnection.ontrack = (event) => {
+        console.log('Received remote track:', event.streams[0].id);
+        callback(event.streams[0]);
+      };
+    }
   }
 }
 
-let webRTCServiceInstance: WebRTCService | null = null;
+// 单例模式
+let webRTCService: WebRTCService | null = null;
 
-export const getWebRTCService = (): WebRTCService => {
-  if (typeof window === 'undefined') {
-    return {
-      connect: async () => {},
-      onTrack: () => {},
-      onTranscription: () => {},
-      disconnect: () => {},
-    };
+export function getWebRTCService(): WebRTCService {
+  if (!webRTCService) {
+    webRTCService = new WebRTCService();
   }
-
-  if (!webRTCServiceInstance) {
-    webRTCServiceInstance = new WebRTCServiceImpl();
-  }
-
-  return webRTCServiceInstance;
-};
+  return webRTCService;
+}
