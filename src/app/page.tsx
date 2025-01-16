@@ -3,10 +3,9 @@
 import { useEffect } from 'react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import AudioControls from '@/components/AudioControls';
-import TranscriptionDisplay from '@/components/TranscriptionDisplay';
 
 export default function Home() {
-  const { isConnected, audioStream, error, connect, disconnect, transcription } = useWebRTC();
+  const { isConnected, audioStream, error, connect, disconnect } = useWebRTC();
 
   useEffect(() => {
     if (audioStream) {
@@ -32,8 +31,6 @@ export default function Home() {
           onDisconnect={disconnect}
           error={error}
         />
-        
-        <TranscriptionDisplay transcription={transcription} />
       </div>
     </main>
   );

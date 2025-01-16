@@ -5,7 +5,6 @@ export function useWebRTC() {
   const [isConnected, setIsConnected] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  const [transcription, setTranscription] = useState<string[]>([]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -14,10 +13,6 @@ export function useWebRTC() {
     
     webRTCService.onTrack((stream) => {
       setAudioStream(stream);
-    });
-
-    webRTCService.onTranscription((text) => {
-      setTranscription(prev => [...prev, text]);
     });
 
     return () => {
@@ -42,7 +37,6 @@ export function useWebRTC() {
       webRTCService.disconnect();
       setIsConnected(false);
       setAudioStream(null);
-      setTranscription([]);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to disconnect'));
     }
@@ -54,6 +48,5 @@ export function useWebRTC() {
     error,
     connect,
     disconnect,
-    transcription,
   };
 }

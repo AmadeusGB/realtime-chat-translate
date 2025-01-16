@@ -65,7 +65,6 @@ class WebRTCServiceImpl implements WebRTCService {
   private handleDataChannelMessage = async (event: MessageEvent) => {
     try {
       const msg = JSON.parse(event.data);
-      console.log('Received message:', msg);
       
       if (msg.type === 'response.audio_transcript.delta' && msg.text) {
         console.log('Processing transcription:', msg.text, 'Callback exists:', !!this.transcriptionCallback);
