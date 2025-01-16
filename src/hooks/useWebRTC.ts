@@ -9,8 +9,12 @@ export function useWebRTC() {
   // 使用 ref 来存储当前的 WebRTC 服务实例
   const webRTCServiceRef = useRef(getWebRTCService());
 
+  // 添加音频元素ref
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
   // 重置所有状态和连接
   const resetConnection = useCallback(() => {
+    if (!webRTCServiceRef.current) return;
     
     // 清理现有的音频流
     if (audioStream) {
@@ -33,25 +37,63 @@ export function useWebRTC() {
     if (typeof window === 'undefined') return;
 
     const webRTCService = webRTCServiceRef.current;
+    if (!webRTCService) {
+      console.log('WebRTC service not available');
+      return;
+    }
+    
+    // 添加连接状态变化监听
+    webRTCService.onConnectionStateChange((state) => {
+      console.log('WebRTC connection state changed:', state);
+    });
     
     webRTCService.onTrack((stream) => {
       console.log('New audio track received:', stream.id);
+      console.log('Audio tracks:', stream.getAudioTracks().length);
+      
+      // 创建或更新音频元素
+      if (!audioElementRef.current) {
+        audioElementRef.current = new Audio();
+        audioElementRef.current.autoplay = true;
+        console.log('Created new audio element');
+      }
+      
+      audioElementRef.current.srcObject = stream;
+      console.log('Set audio stream to element');
+      
+      // 监听音频播放状态
+      audioElementRef.current.onplay = () => console.log('Audio started playing');
+      audioElementRef.current.onerror = (e) => console.error('Audio error:', e);
+      
       setAudioStream(stream);
     });
 
     return () => {
       console.log('Cleaning up WebRTC service...');
+      if (audioElementRef.current) {
+        audioElementRef.current.srcObject = null;
+        audioElementRef.current = null;
+        console.log('Cleaned up audio element');
+      }
       disconnect();
     };
   }, []);
 
   const connect = useCallback(async () => {
+    console.log('Attempting to connect...');
+    if (!webRTCServiceRef.current) {
+      console.error('WebRTC service not available');
+      setError(new Error('WebRTC service not available'));
+      return;
+    }
+
     try {
-      // 在新连接前重置所有状态
       resetConnection();
       
       const webRTCService = webRTCServiceRef.current;
+      console.log('Initializing WebRTC connection...');
       await webRTCService.connect();
+      console.log('WebRTC connection established');
       
       setIsConnected(true);
     } catch (err) {
@@ -63,6 +105,8 @@ export function useWebRTC() {
   }, [resetConnection]);
 
   const disconnect = useCallback(() => {
+    if (!webRTCServiceRef.current) return;
+
     try {
       const webRTCService = webRTCServiceRef.current;
       

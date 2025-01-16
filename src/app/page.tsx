@@ -1,73 +1,49 @@
 'use client';
 
-import { useEffect, useCallback, useRef } from 'react';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import { useEffect, useState } from 'react';
 import AudioControls from '@/components/AudioControls';
+import { useWebRTC } from '@/hooks/useWebRTC';
 
 export default function Home() {
-  const { isConnected, audioStream, error, connect, disconnect } = useWebRTC();
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.code === 'Space' && !e.repeat && !isConnected) {
-      e.preventDefault();
-      connect();
-    }
-  }, [connect, isConnected]);
-
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.code === 'Space' && isConnected) {
-      e.preventDefault();
-      disconnect();
-    }
-  }, [disconnect, isConnected]);
+  const { isConnected, error, connect, disconnect } = useWebRTC();
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && isConnected && !isRecording) {
+        setIsRecording(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && isConnected && isRecording) {
+        setIsRecording(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown, handleKeyUp]);
+  }, [isConnected, isRecording]);
 
-  useEffect(() => {
-    if (audioStream) {
-      
-      // 清理现有的音频元素
-      if (audioElementRef.current) {
-        console.log('Cleaning up existing audio element...');
-        audioElementRef.current.srcObject = null;
-        document.body.removeChild(audioElementRef.current);
-        audioElementRef.current = null;
-      }
-
-      // 创建新的音频元素
-      const audioElement = document.createElement('audio');
-      audioElement.srcObject = audioStream;
-      audioElement.autoplay = true;
-      audioElement.setAttribute('playsinline', '');
-      audioElement.muted = false;
-      audioElement.volume = 1.0;
-      
-      // 添加事件监听以便调试
-      audioElement.onplay = () => console.log('Audio started playing');
-      audioElement.onpause = () => console.log('Audio paused');
-      audioElement.onerror = (e) => console.error('Audio element error:', e);
-      
-      document.body.appendChild(audioElement);
-      audioElementRef.current = audioElement;
-
-      return () => {
-        if (audioElementRef.current) {
-          audioElementRef.current.srcObject = null;
-          document.body.removeChild(audioElementRef.current);
-          audioElementRef.current = null;
-        }
-      };
+  const handleStart = async () => {
+    try {
+      await connect();
+    } catch (err) {
+      console.error('Failed to start:', err);
     }
-  }, [audioStream]);
+  };
+
+  const handleStop = () => {
+    setIsRecording(false);
+    disconnect();
+  };
 
   return (
     <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -77,6 +53,9 @@ export default function Home() {
         <AudioControls 
           isConnected={isConnected}
           error={error}
+          onStart={handleStart}
+          onStop={handleStop}
+          isRecording={isRecording}
         />
       </div>
     </main>

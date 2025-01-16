@@ -2,12 +2,19 @@ export class WebRTCService {
   private peerConnection: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private onTrackCallback: ((stream: MediaStream) => void) | null = null;
+  private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
 
   constructor() {
-    this.initialize();
+    // 确保只在浏览器环境中初始化
+    if (typeof window !== 'undefined') {
+      this.initialize();
+    }
   }
 
   private initialize() {
+    // 确保在浏览器环境中执行
+    if (typeof window === 'undefined') return;
+
     // 确保清理旧的连接
     if (this.peerConnection) {
       this.peerConnection.close();
@@ -17,6 +24,26 @@ export class WebRTCService {
     this.peerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
+
+    // 添加连接状态监听
+    this.peerConnection.onconnectionstatechange = () => {
+      const state = this.peerConnection?.connectionState;
+      console.log('Connection state:', state);
+      // 只在state存在时调用回调
+      if (state) {
+        this.onConnectionStateChangeCallback?.(state);
+      }
+    };
+
+    // 添加ICE连接状态监听
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
+    };
+
+    // 添加协商状态监听
+    this.peerConnection.onsignalingstatechange = () => {
+      console.log('Signaling state:', this.peerConnection?.signalingState);
+    };
 
     // 重新绑定 ontrack 事件
     if (this.onTrackCallback) {
@@ -104,14 +131,23 @@ export class WebRTCService {
       };
     }
   }
-}
 
-// 单例模式
-let webRTCService: WebRTCService | null = null;
-
-export function getWebRTCService(): WebRTCService {
-  if (!webRTCService) {
-    webRTCService = new WebRTCService();
+  public onConnectionStateChange(callback: (state: RTCPeerConnectionState) => void) {
+    this.onConnectionStateChangeCallback = callback;
   }
-  return webRTCService;
 }
+
+// 单例模式创建服务实例
+let webRTCServiceInstance: WebRTCService | null = null;
+
+export const getWebRTCService = () => {
+  // 确保只在浏览器环境中创建实例
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  if (!webRTCServiceInstance) {
+    webRTCServiceInstance = new WebRTCService();
+  }
+  return webRTCServiceInstance;
+};
