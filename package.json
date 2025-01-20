@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/file-saver": "^2.0.7",
     "@types/webrtc": "^0.0.44",
+    "file-saver": "^2.0.5",
     "lodash": "^4.17.21",
     "next": "15.1.4",
     "openai": "^4.79.1",

@@ -7,6 +7,7 @@ import AudioControls from '@/components/AudioControls';
 import TranslationPanel from '@/components/TranslationPanel';
 import useWebRTC from '@/hooks/useWebRTC';
 import debounce from 'lodash/debounce';
+import { saveAs } from 'file-saver';  // 需要先安装: npm install file-saver @types/file-saver
 
 // 定义缓冲区接口
 interface SpeechBuffer {
@@ -15,7 +16,22 @@ interface SpeechBuffer {
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 从 localStorage 初始化消息
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('translationHistory');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  // 当消息更新时保存到 localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('translationHistory', JSON.stringify(messages));
+    }
+  }, [messages]);
+
   const [isTranslating, setIsTranslating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const bufferRef = useRef<string>('');
@@ -201,6 +217,28 @@ export default function Home() {
     }
   }, [messages]); // 当消息列表更新时触发
 
+  // 添加导出功能
+  const handleExport = () => {
+    // 准备导出数据
+    const exportData = messages.map(msg => ({
+      timestamp: new Date(msg.timestamp).toLocaleString(),
+      original: msg.originalText,
+      translation: msg.translatedText,
+    }));
+
+    // 创建 CSV 内容
+    const csvContent = [
+      'Timestamp,Original Text,Translation',  // CSV 头部
+      ...exportData.map(row => 
+        `"${row.timestamp}","${row.original}","${row.translation}"`
+      )
+    ].join('\n');
+
+    // 创建 Blob 并下载
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `translation-history-${new Date().toISOString().slice(0,10)}.csv`);
+  };
+
   return (
     <main className="min-h-screen relative overflow-hidden bg-gradient-animate">
       {/* 装饰性背景元素 */}
@@ -243,6 +281,21 @@ export default function Home() {
           {/* 右侧：翻译结果展示 */}
           <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8
             border border-white/20 shadow-2xl min-h-[600px]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">翻译记录</h2>
+              <button
+                onClick={handleExport}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 
+                  transition-colors text-sm flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                  />
+                </svg>
+                导出记录
+              </button>
+            </div>
             <TranslationPanel 
               messages={messages}
               isTranslating={isTranslating}

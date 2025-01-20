@@ -24,8 +24,8 @@ export default function TranslationPanel({ messages, isTranslating }: Translatio
             <div className="message">
               {/* 英文消息 */}
               <div className="flex gap-3 mb-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                  En
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                  en
                 </div>
                 <div className="flex-1 min-h-[2rem] flex items-center">
                   {message.originalText}
@@ -35,8 +35,8 @@ export default function TranslationPanel({ messages, isTranslating }: Translatio
               {/* 中文翻译 */}
               {message.translatedText && (
                 <div className="flex gap-3 mb-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white">
-                    中
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium">
+                    zh
                   </div>
                   <div className="flex-1 min-h-[2rem] flex items-center">
                     {message.translatedText}
