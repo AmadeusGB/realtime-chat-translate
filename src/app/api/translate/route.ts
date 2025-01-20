@@ -1,4 +1,9 @@
 import { NextResponse } from 'next/server'
+import OpenAI from 'openai'
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+})
 
 export async function POST(request: Request) {
   try {
@@ -12,11 +17,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // 这里可以调用翻译服务
-    // 示例: 直接返回原文
-    const translation = text
+    // 调用 OpenAI API 进行翻译
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a translator. Translate the following English text to Chinese. Only output the translation, no explanations."
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ],
+      temperature: 0.3
+    });
 
+    const translation = completion.choices[0].message.content;
     console.log('Translation result:', translation)
+    
     return NextResponse.json({ translation })
   } catch (error) {
     console.error('Translation error:', error)

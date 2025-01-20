@@ -65,3 +65,32 @@ body {
   0% { transform: scale(1); opacity: 0.4; }
   100% { transform: scale(1.5); opacity: 0; }
 }
+
+/* 添加翻译记录容器样式 */
+.translation-record {
+  height: 60vh; /* 使用视窗高度的60%作为容器高度 */
+  overflow-y: auto; /* 添加垂直滚动条 */
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* 美化滚动条样式（可选） */
+.translation-record::-webkit-scrollbar {
+  width: 8px;
+}
+
+.translation-record::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.translation-record::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.translation-record::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

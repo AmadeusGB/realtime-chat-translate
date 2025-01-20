@@ -5,6 +5,8 @@ export class WebRTCService {
   private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
   private mediaStream: MediaStream | null = null;
   private speechCallbacks: ((text: string) => void)[] = [];
+  private lastChineseTranscript: string = '';
+  private lastEnglishTranscript: string = '';
 
   constructor() {
     // 确保只在浏览器环境中初始化
@@ -185,12 +187,29 @@ export class WebRTCService {
 
   // 在收到语音识别结果时调用
   private handleSpeechResult(text: string) {
-    console.log('[WebRTCService] Handling speech result:', text);
+    // Store transcripts based on language detection
+    if (/[\u4e00-\u9fa5]/.test(text)) {
+      this.lastChineseTranscript = text;
+    } else {
+      this.lastEnglishTranscript = text;
+    }
+
+    // Call existing speech callbacks
     console.log('[WebRTCService] Number of callbacks:', this.speechCallbacks.length);
     this.speechCallbacks.forEach(callback => {
       console.log('[WebRTCService] Calling speech callback');
       callback(text);
     });
+
+    // If we have both transcripts, emit a translation pair
+    if (this.lastChineseTranscript && this.lastEnglishTranscript) {
+      this.speechCallbacks.forEach(callback => {
+        callback(`${this.lastChineseTranscript} -> ${this.lastEnglishTranscript}`);
+      });
+      // Clear after emitting
+      this.lastChineseTranscript = '';
+      this.lastEnglishTranscript = '';
+    }
   }
 
   // 简化音频处理方法

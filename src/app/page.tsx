@@ -126,11 +126,11 @@ export default function Home() {
       
       if (!response.ok) throw new Error('Translation failed');
       
-      const { translatedText } = await response.json();
+      const { translation } = await response.json();
       
       setMessages(prev => prev.map(msg => 
         msg.id === messageId 
-          ? {...msg, translatedText, isPending: false}
+          ? {...msg, translatedText: translation, isPending: false}
           : msg
       ));
     } catch (error) {
@@ -192,6 +192,14 @@ export default function Home() {
       bufferRef.current = '';
     };
   }, []);
+
+  // 添加自动滚动效果
+  useEffect(() => {
+    const element = document.querySelector('.translation-record');
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages]); // 当消息列表更新时触发
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-gradient-animate">
