@@ -4,6 +4,7 @@ interface AudioControlsProps {
   onStart: () => void;
   onStop: () => void;
   isRecording: boolean;
+  onSpeechResult: (text: string) => Promise<void>;
 }
 
 export default function AudioControls({ 
@@ -11,7 +12,8 @@ export default function AudioControls({
   error, 
   onStart, 
   onStop,
-  isRecording 
+  isRecording,
+  onSpeechResult 
 }: AudioControlsProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-6">

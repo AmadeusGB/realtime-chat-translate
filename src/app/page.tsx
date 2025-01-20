@@ -1,12 +1,151 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { ChatMessage } from '@/types/chat';
 import AudioControls from '@/components/AudioControls';
-import { useWebRTC } from '@/hooks/useWebRTC';
+import TranslationPanel from '@/components/TranslationPanel';
+import useWebRTC from '@/hooks/useWebRTC';
+import debounce from 'lodash/debounce';
+
+// 定义缓冲区接口
+interface SpeechBuffer {
+  text: string;
+  timestamp: number;
+}
 
 export default function Home() {
-  const { isConnected, error, connect, disconnect, startRecording, stopRecording } = useWebRTC();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const bufferRef = useRef<string>('');
+  const messageBuffer = useRef<{[key: string]: ChatMessage}>({});
+
+  // 创建一个防抖的翻译函数
+  const debouncedTranslate = useCallback(
+    debounce(async (text: string) => {
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            text,
+            from: 'en',
+            to: 'zh'
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Translation failed');
+        }
+
+        const data = await response.json();
+        
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1];
+          if (!lastMsg || lastMsg.role !== 'user') {
+            return [...prev, {
+              id: uuidv4(),
+              role: 'user',
+              content: text,
+              originalText: text,
+              translatedText: data.translation,
+              timestamp: Date.now(),
+              isPending: false
+            }];
+          }
+          
+          return prev.map(msg =>
+            msg.id === lastMsg.id
+              ? {
+                  ...msg,
+                  content: text,
+                  originalText: text,
+                  translatedText: data.translation,
+                  isPending: false
+                }
+              : msg
+          );
+        });
+      } catch (error) {
+        console.error('[Page] Translation error:', error);
+      }
+    }, 1000),
+    []
+  );
+
+  const handleSpeechResult = useCallback(async (text: string) => {
+    // 忽略单个标点符号
+    if (text.trim().length <= 1) return;
+    
+    // 如果是增量更新（包含单词或短语），更新最后一条消息
+    if (!text.endsWith('.') && !text.endsWith('?') && !text.endsWith('!')) {
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.isPending) {
+          return prev.map(msg => 
+            msg.id === lastMsg.id 
+              ? {...msg, originalText: text}
+              : msg
+          );
+        }
+        return prev;
+      });
+      return;
+    }
+
+    // 生成新消息 ID
+    const messageId = Date.now().toString();
+    
+    // 创建新消息
+    const message: ChatMessage = {
+      id: messageId,
+      role: 'user',
+      content: text,
+      originalText: text,
+      translatedText: undefined,
+      timestamp: Date.now(),
+      isPending: true
+    };
+    
+    setMessages(prev => [...prev, message]);
+    
+    // 调用翻译 API
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text,
+          from: 'en',
+          to: 'zh'
+        })
+      });
+      
+      if (!response.ok) throw new Error('Translation failed');
+      
+      const { translatedText } = await response.json();
+      
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId 
+          ? {...msg, translatedText, isPending: false}
+          : msg
+      ));
+    } catch (error) {
+      console.error('Translation error:', error);
+    }
+  }, []);
+
+  const { 
+    isConnected, 
+    error, 
+    connect, 
+    disconnect, 
+    startRecording: webRTCStartRecording,
+    stopRecording: webRTCStopRecording
+  } = useWebRTC(handleSpeechResult);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -14,14 +153,14 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat && isConnected && !isRecording) {
         setIsRecording(true);
-        startRecording();
+        webRTCStartRecording();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space' && isConnected && isRecording) {
         setIsRecording(false);
-        stopRecording();
+        webRTCStopRecording();
       }
     };
 
@@ -32,7 +171,7 @@ export default function Home() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isConnected, isRecording, startRecording, stopRecording]);
+  }, [isConnected, isRecording, webRTCStartRecording, webRTCStopRecording]);
 
   const handleStart = async () => {
     try {
@@ -46,6 +185,13 @@ export default function Home() {
     setIsRecording(false);
     disconnect();
   };
+
+  // 清理缓冲区
+  useEffect(() => {
+    return () => {
+      bufferRef.current = '';
+    };
+  }, []);
 
   return (
     <main className="min-h-screen relative overflow-hidden bg-gradient-animate">
@@ -70,7 +216,7 @@ export default function Home() {
 
       {/* 主要内容区 */}
       <div className="pt-24 pb-8 px-4 flex flex-col items-center justify-center min-h-screen">
-        <div className="w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* 左侧：控制面板 */}
           <div className="flex flex-col space-y-8">
             <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8
@@ -81,15 +227,20 @@ export default function Home() {
                 onStart={handleStart}
                 onStop={handleStop}
                 isRecording={isRecording}
+                onSpeechResult={handleSpeechResult}
               />
             </div>
           </div>
 
-          {/* 右侧：翻译结果展示（预留） */}
+          {/* 右侧：翻译结果展示 */}
           <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8
-            border border-white/20 shadow-2xl min-h-[400px] hidden md:block">
-            <div className="h-full flex items-center justify-center text-gray-400">
-              <p>翻译结果将在这里显示</p>
+            border border-white/20 shadow-2xl min-h-[600px]">
+            <TranslationPanel 
+              messages={messages}
+              isTranslating={isTranslating}
+            />
+            <div className="mt-4 text-xs text-gray-400">
+              Messages count: {messages.length}
             </div>
           </div>
         </div>

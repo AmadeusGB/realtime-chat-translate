@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getWebRTCService } from '@/services/webrtc';
 
-export function useWebRTC() {
+interface UseWebRTCReturn {
+  isConnected: boolean;
+  error: Error | null;
+  audioStream: MediaStream | null;
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
+  onSpeechResult?: (text: string) => Promise<void>;
+}
+
+export function useWebRTC(onSpeechResult?: (text: string) => Promise<void>): UseWebRTCReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -79,6 +90,21 @@ export function useWebRTC() {
     };
   }, []);
 
+  // 添加语音识别结果处理
+  useEffect(() => {
+    if (!webRTCServiceRef.current) return;
+
+    console.log('[useWebRTC] Setting up speech result callback');
+    webRTCServiceRef.current.onSpeechResult((text: string) => {
+      console.log('[useWebRTC] Speech result callback triggered:', text);
+      if (onSpeechResult) {
+        onSpeechResult(text).catch(err => {
+          console.error('[useWebRTC] Error handling speech result:', err);
+        });
+      }
+    });
+  }, [onSpeechResult]);
+
   const connect = useCallback(async () => {
     console.log('Attempting to connect...');
     if (!webRTCServiceRef.current) {
@@ -143,11 +169,14 @@ export function useWebRTC() {
 
   return {
     isConnected,
-    audioStream,
     error,
+    audioStream,
     connect,
     disconnect,
     startRecording,
     stopRecording,
   };
 }
+
+// 确保默认导出
+export default useWebRTC;

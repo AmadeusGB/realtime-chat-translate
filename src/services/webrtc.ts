@@ -4,6 +4,7 @@ export class WebRTCService {
   private onTrackCallback: ((stream: MediaStream) => void) | null = null;
   private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
   private mediaStream: MediaStream | null = null;
+  private speechCallbacks: ((text: string) => void)[] = [];
 
   constructor() {
     // 确保只在浏览器环境中初始化
@@ -52,6 +53,27 @@ export class WebRTCService {
         this.onTrackCallback?.(event.streams[0]);
       };
     }
+
+    // 创建和配置数据通道
+    this.dataChannel = this.peerConnection.createDataChannel('messages');
+    console.log('[WebRTCService] Data channel created');
+
+    this.dataChannel.onopen = () => {
+      console.log('[WebRTCService] Data channel opened');
+    };
+
+    this.dataChannel.onclose = () => {
+      console.log('[WebRTCService] Data channel closed');
+    };
+
+    this.dataChannel.onmessage = this.handleDataChannelMessage.bind(this);
+
+    // 监听远程数据通道
+    this.peerConnection.ondatachannel = (event) => {
+      console.log('[WebRTCService] Received remote data channel');
+      this.dataChannel = event.channel;
+      this.dataChannel.onmessage = this.handleDataChannelMessage.bind(this);
+    };
   }
 
   public async connect() {
@@ -154,6 +176,56 @@ export class WebRTCService {
       this.mediaStream.getAudioTracks().forEach(track => {
         track.enabled = false;
       });
+    }
+  }
+
+  public onSpeechResult(callback: (text: string) => void) {
+    this.speechCallbacks.push(callback);
+  }
+
+  // 在收到语音识别结果时调用
+  private handleSpeechResult(text: string) {
+    console.log('[WebRTCService] Handling speech result:', text);
+    console.log('[WebRTCService] Number of callbacks:', this.speechCallbacks.length);
+    this.speechCallbacks.forEach(callback => {
+      console.log('[WebRTCService] Calling speech callback');
+      callback(text);
+    });
+  }
+
+  // 简化音频处理方法
+  private async processAudio(audioData: any) {
+    console.log('[WebRTCService] Processing audio data:', typeof audioData);
+    if (typeof audioData === 'string') {
+      console.log('[WebRTCService] Received text from server:', audioData);
+      this.handleSpeechResult(audioData);
+    }
+  }
+
+  // 在数据通道接收消息时
+  private handleDataChannelMessage = (event: MessageEvent) => {
+    console.log('[WebRTCService] Received data channel message:', event.data);
+    try {
+      const data = JSON.parse(event.data);
+      
+      // 处理语音识别结果
+      if (data.type === 'response.audio_transcript.done' && data.transcript) {
+        console.log('[WebRTCService] Processing transcript:', data.transcript);
+        this.handleSpeechResult(data.transcript);
+      }
+      // 处理增量语音识别结果
+      else if (data.type === 'response.audio_transcript.delta' && data.delta) {
+        console.log('[WebRTCService] Processing transcript delta:', data.delta);
+        this.handleSpeechResult(data.delta);
+      }
+      // 保持原有的处理逻辑
+      else if (data.type === 'speech_result' && data.text) {
+        console.log('[WebRTCService] Processing speech result:', data.text);
+        this.handleSpeechResult(data.text);
+      }
+    } catch (err) {
+      // 如果不是JSON，直接处理文本
+      this.processAudio(event.data);
     }
   }
 }
