@@ -16,21 +16,22 @@ interface SpeechBuffer {
 }
 
 export default function Home() {
-  // 从 localStorage 初始化消息
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('translationHistory');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
-  });
-
-  // 当消息更新时保存到 localStorage
+  const [isClient, setIsClient] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]); // 初始为空数组
+  
+  // 添加客户端初始化 effect
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('translationHistory', JSON.stringify(messages));
+    setIsClient(true);
+    const saved = localStorage.getItem('translationHistory');
+    if (saved) {
+      try {
+        const parsedMessages = JSON.parse(saved);
+        setMessages(parsedMessages);
+      } catch (e) {
+        console.error('Failed to parse saved messages:', e);
+      }
     }
-  }, [messages]);
+  }, []);
 
   const [isTranslating, setIsTranslating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -283,26 +284,31 @@ export default function Home() {
             border border-white/20 shadow-2xl min-h-[600px]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-medium">翻译记录</h2>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 
-                  transition-colors text-sm flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-                  />
-                </svg>
-                导出记录
-              </button>
+              {isClient && ( // 仅在客户端渲染导出按钮
+                <button
+                  onClick={handleExport}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 
+                    transition-colors text-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                    />
+                  </svg>
+                  导出记录
+                </button>
+              )}
             </div>
             <TranslationPanel 
               messages={messages}
               isTranslating={isTranslating}
+              isClient={isClient}
             />
-            <div className="mt-4 text-xs text-gray-400">
-              Messages count: {messages.length}
-            </div>
+            {isClient && (
+              <div className="mt-4 text-xs text-gray-400">
+                Messages count: {messages.length}
+              </div>
+            )}
           </div>
         </div>
 

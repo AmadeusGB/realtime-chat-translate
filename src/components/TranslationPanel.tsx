@@ -4,9 +4,10 @@ import { ChatMessage } from '@/types/chat';
 interface TranslationPanelProps {
   messages: ChatMessage[];
   isTranslating: boolean;
+  isClient: boolean;
 }
 
-export default function TranslationPanel({ messages, isTranslating }: TranslationPanelProps) {
+export default function TranslationPanel({ messages, isTranslating, isClient }: TranslationPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到最新消息
@@ -15,6 +16,15 @@ export default function TranslationPanel({ messages, isTranslating }: Translatio
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // 在客户端渲染之前显示加载状态
+  if (!isClient) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full">
