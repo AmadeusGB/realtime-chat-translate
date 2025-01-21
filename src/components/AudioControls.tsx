@@ -4,7 +4,6 @@ interface AudioControlsProps {
   onStart: () => void;
   onStop: () => void;
   isRecording: boolean;
-  onSpeechResult: (text: string) => Promise<void>;
 }
 
 export default function AudioControls({ 
@@ -13,7 +12,6 @@ export default function AudioControls({
   onStart, 
   onStop,
   isRecording,
-  onSpeechResult 
 }: AudioControlsProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-6">
@@ -49,7 +47,7 @@ export default function AudioControls({
           {/* 图标和文字 */}
           <div className="relative z-10 text-white text-center">
             <div className="text-3xl mb-2">
-              {isRecording ? '●' : '⬤'}
+              {isRecording ? '⬤' : '●'}
             </div>
             <p className="text-sm font-medium">
               {isConnected 

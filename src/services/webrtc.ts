@@ -216,8 +216,8 @@ export class WebRTCService {
     }
   }
 
-  // 简化音频处理方法
-  private async processAudio(audioData: any) {
+  // Updated type for audioData parameter
+  private async processAudio(audioData: string | ArrayBuffer) {
     console.log('[WebRTCService] Processing audio data:', typeof audioData);
     if (typeof audioData === 'string') {
       console.log('[WebRTCService] Received text from server:', audioData);
@@ -225,7 +225,7 @@ export class WebRTCService {
     }
   }
 
-  // 在数据通道接收消息时
+  // Updated error handling
   private handleDataChannelMessage = (event: MessageEvent) => {
     console.log('[WebRTCService] Received data channel message:', event.data);
     try {
@@ -246,8 +246,8 @@ export class WebRTCService {
         console.log('[WebRTCService] Processing speech result:', data.text);
         this.handleSpeechResult(data.text);
       }
-    } catch (err) {
-      // 如果不是JSON，直接处理文本
+    } catch {  // Removed unused parameter
+      // If not JSON, directly process as audio data
       this.processAudio(event.data);
     }
   }
