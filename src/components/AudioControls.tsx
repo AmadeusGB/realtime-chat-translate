@@ -53,7 +53,7 @@ export default function AudioControls({
             </div>
             <p className="text-sm font-medium">
               {isConnected 
-                ? (isRecording ? '正在录音...' : '按住空格键说话') 
+                ? (isRecording ? '正在说话...' : '按住空格键说话') 
                 : '请先连接'}
             </p>
           </div>
