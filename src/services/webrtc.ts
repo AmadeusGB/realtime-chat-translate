@@ -187,28 +187,27 @@ export class WebRTCService {
 
   // 在收到语音识别结果时调用
   private handleSpeechResult(text: string) {
-    // Store transcripts based on language detection
-    if (/[\u4e00-\u9fa5]/.test(text)) {
-      this.lastChineseTranscript = text;
-    } else {
-      this.lastEnglishTranscript = text;
+    // 忽略包含 -> 的中间状态消息
+    if (text.includes('->')) {
+      return;
     }
 
-    // Call existing speech callbacks
-    console.log('[WebRTCService] Number of callbacks:', this.speechCallbacks.length);
-    this.speechCallbacks.forEach(callback => {
-      console.log('[WebRTCService] Calling speech callback');
-      callback(text);
-    });
-
-    // If we have both transcripts, emit a translation pair
-    if (this.lastChineseTranscript && this.lastEnglishTranscript) {
+    // 检查是否是完整句子(以标点符号结尾)
+    const isCompleteSentence = /[。！？.!?]$/.test(text);
+    
+    if (isCompleteSentence) {
+      // 只在收到完整句子时调用回调
       this.speechCallbacks.forEach(callback => {
-        callback(`${this.lastChineseTranscript} -> ${this.lastEnglishTranscript}`);
+        console.log('[WebRTCService] Calling speech callback with complete sentence');
+        callback(text);
       });
-      // Clear after emitting
-      this.lastChineseTranscript = '';
-      this.lastEnglishTranscript = '';
+    } else {
+      // 存储未完成的句子部分
+      if (/[\u4e00-\u9fa5]/.test(text)) {
+        this.lastChineseTranscript = text;
+      } else {
+        this.lastEnglishTranscript = text;
+      }
     }
   }
 

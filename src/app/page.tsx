@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatMessage } from '@/types/chat';
 import AudioControls from '@/components/AudioControls';
-import TranslationPanel from '@/components/TranslationPanel';
 import useWebRTC from '@/hooks/useWebRTC';
 import debounce from 'lodash/debounce';
 import { saveAs } from 'file-saver';  // 需要先安装: npm install file-saver @types/file-saver
@@ -13,6 +12,99 @@ import { saveAs } from 'file-saver';  // 需要先安装: npm install file-saver
 interface SpeechBuffer {
   text: string;
   timestamp: number;
+}
+
+// 添加 Message 接口定义
+interface Message extends ChatMessage {
+  isChineseInput?: boolean;
+}
+
+interface TranslationPanelProps {
+  messages: ChatMessage[]
+  isTranslating: boolean
+  isClient: boolean
+}
+
+function MessagePanel({ messages, isTranslating, isClient }: TranslationPanelProps) {
+  const [messageMap, setMessageMap] = useState<Map<string, Message>>(new Map());
+
+  useEffect(() => {
+    console.log('Processing message:', messages);
+    
+    messages.forEach(async (message) => {
+      const text = message.originalText || '';
+      
+      // 只在收到完整消息时更新
+      if (!text.includes('->')) {
+        const isChineseInput = /[\u4e00-\u9fa5]/.test(text);
+        
+        // 添加调试日志
+        console.log('Complete message received:', {
+          text,
+          isChineseInput
+        });
+
+        // 更新消息状态
+        setMessageMap(prev => {
+          const newMap = new Map(prev);
+          newMap.set(message.id, {
+            ...message,
+            isChineseInput,
+            translatedText: message.translatedText
+          });
+          return newMap;
+        });
+      }
+    });
+  }, [messages]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      {messages.map((message) => {
+        const originalText = message.originalText || '';
+        const isChineseInput = /[\u4e00-\u9fa5]/.test(originalText);
+        const translatedText = messageMap.get(message.id)?.translatedText || message.translatedText;
+        
+        console.log('Rendering message:', {
+          id: message.id,
+          originalText,
+          isChineseInput,
+          translatedText
+        });
+
+        return (
+          <div key={message.id} className="flex flex-col space-y-2">
+            <div className="flex items-start space-x-2">
+              <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+                isChineseInput ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+              }`}>
+                {isChineseInput ? 'zh' : 'en'}
+              </span>
+              <p className="text-gray-700">{originalText}</p>
+            </div>
+            
+            {translatedText && (
+              <div className="flex items-start space-x-2 pl-6">
+                <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+                  isChineseInput ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {isChineseInput ? 'en' : 'zh'}
+                </span>
+                <p className="text-gray-700">{translatedText}</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      
+      {isTranslating && (
+        <div className="flex items-center space-x-2">
+          <div className="animate-pulse">...</div>
+          <p className="text-gray-500">翻译中...</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Home() {
@@ -97,8 +189,13 @@ export default function Home() {
     // 忽略单个标点符号
     if (text.trim().length <= 1) return;
     
-    // 如果是增量更新（包含单词或短语），更新最后一条消息
-    if (!text.endsWith('.') && !text.endsWith('?') && !text.endsWith('!')) {
+    // 检测输入语言
+    const isChineseInput = /[\u4e00-\u9fa5]/.test(text);
+    
+    // 修改增量更新的判断逻辑
+    if (!text.endsWith('.') && !text.endsWith('?') && !text.endsWith('!') && 
+        !text.endsWith('。') && !text.endsWith('？') && !text.endsWith('！') && 
+        !text.includes('->')) {
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg && lastMsg.isPending) {
@@ -136,8 +233,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text,
-          from: 'en',
-          to: 'zh'
+          from: isChineseInput ? 'zh' : 'en',
+          to: isChineseInput ? 'en' : 'zh'
         })
       });
       
@@ -320,7 +417,7 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <TranslationPanel 
+            <MessagePanel 
               messages={messages}
               isTranslating={isTranslating}
               isClient={isClient}
