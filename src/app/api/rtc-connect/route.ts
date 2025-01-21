@@ -55,28 +55,12 @@ TECHNICAL REQUIREMENTS:
 
 export async function POST(request: Request) {
   try {
-    // 解析请求体
-    const body = await request.text();
-    let offer;
-    
-    try {
-      // 检查是否是 SDP 格式
-      if (body.includes('v=0')) {
-        offer = body; // 直接使用 SDP 字符串
-      } else {
-        offer = JSON.parse(body);
-      }
-    } catch (e) {
-      console.error('Failed to parse request body:', e);
-      return NextResponse.json(
-        { error: 'Invalid SDP offer format' },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const { sdp, model = 'gpt-4o-mini-realtime-preview' } = body;
 
-    // 准备 API 请求
+    // Prepare API request
     const url = new URL('https://api.openai.com/v1/realtime');
-    url.searchParams.set('model', 'gpt-4o-mini-realtime-preview');
+    url.searchParams.set('model', model);
     url.searchParams.set('instructions', DEFAULT_INSTRUCTIONS);
     url.searchParams.set('voice', 'ash');
 
@@ -97,7 +81,7 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/sdp',  // 修改为 SDP 内容类型
       },
-      body: typeof offer === 'string' ? offer : JSON.stringify(offer),
+      body: typeof sdp === 'string' ? sdp : JSON.stringify(sdp),
     });
 
     if (!response.ok) {

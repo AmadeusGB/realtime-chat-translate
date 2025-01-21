@@ -7,6 +7,7 @@ import AudioControls from '@/components/AudioControls';
 import useWebRTC from '@/hooks/useWebRTC';
 import debounce from 'lodash/debounce';
 import { saveAs } from 'file-saver';  // 需要先安装: npm install file-saver @types/file-saver
+import ModelSelector from '@/components/ModelSelector';
 
 // 定义缓冲区接口
 interface SpeechBuffer {
@@ -129,6 +130,7 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const bufferRef = useRef<string>('');
   const messageBuffer = useRef<{[key: string]: ChatMessage}>({});
+  const [currentModel, setCurrentModel] = useState('gpt-4o-mini-realtime-preview');
 
   // 创建一个防抖的翻译函数
   const debouncedTranslate = useCallback(
@@ -344,6 +346,29 @@ export default function Home() {
     }
   }, []);
 
+  const handleModelChange = useCallback(async (model: string) => {
+    if (isConnected) {
+      // Disconnect current connection
+      handleStop();
+    }
+    
+    setCurrentModel(model);
+    localStorage.setItem('selectedModel', model);
+    
+    // Reconnect with new model if was previously connected
+    if (isConnected) {
+      await handleStart();
+    }
+  }, [isConnected, handleStart, handleStop]);
+
+  useEffect(() => {
+    setIsClient(true);
+    const savedModel = localStorage.getItem('selectedModel');
+    if (savedModel) {
+      setCurrentModel(savedModel);
+    }
+  }, []);
+
   return (
     <main className="min-h-screen relative overflow-hidden bg-gradient-animate">
       {/* 装饰性背景元素 */}
@@ -372,6 +397,11 @@ export default function Home() {
           <div className="flex flex-col space-y-8">
             <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8
               border border-white/20 shadow-2xl">
+              <ModelSelector 
+                currentModel={currentModel}
+                onModelChange={handleModelChange}
+                disabled={isRecording}
+              />
               <AudioControls 
                 isConnected={isConnected}
                 error={error}

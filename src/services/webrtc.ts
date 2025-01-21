@@ -7,8 +7,10 @@ export class WebRTCService {
   private speechCallbacks: ((text: string) => void)[] = [];
   private lastChineseTranscript: string = '';
   private lastEnglishTranscript: string = '';
+  private currentModel: string;
 
-  constructor() {
+  constructor(model: string = 'gpt-4o-mini-realtime-preview') {
+    this.currentModel = model;
     // 确保只在浏览器环境中初始化
     if (typeof window !== 'undefined') {
       this.initialize();
@@ -99,9 +101,12 @@ export class WebRTCService {
       const response = await fetch('/api/rtc-connect', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/sdp',
+          'Content-Type': 'application/json',
         },
-        body: offer.sdp,  // 直接发送 SDP 字符串
+        body: JSON.stringify({
+          sdp: offer.sdp,
+          model: this.currentModel
+        }),
       });
 
       if (!response.ok) {
@@ -246,19 +251,25 @@ export class WebRTCService {
       this.processAudio(event.data);
     }
   }
+
+  public setModel(model: string) {
+    this.currentModel = model;
+  }
 }
 
 // 单例模式创建服务实例
 let webRTCServiceInstance: WebRTCService | null = null;
 
-export const getWebRTCService = () => {
+export const getWebRTCService = (model?: string) => {
   // 确保只在浏览器环境中创建实例
   if (typeof window === 'undefined') {
     return null;
   }
   
   if (!webRTCServiceInstance) {
-    webRTCServiceInstance = new WebRTCService();
+    webRTCServiceInstance = new WebRTCService(model);
+  } else if (model) {
+    webRTCServiceInstance.setModel(model);
   }
   return webRTCServiceInstance;
 };
