@@ -27,8 +27,8 @@ export default function TranslationPanel({ messages, isTranslating, isClient }: 
   }
 
   return (
-    <div className="h-full">
-      <div className="translation-record" ref={scrollRef}>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto" ref={scrollRef}>
         {messages.map((message, index) => (
           <div key={message.id}>
             <div className="message">

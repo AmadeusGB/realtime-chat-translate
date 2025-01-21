@@ -384,8 +384,8 @@ export default function Home() {
           </div>
 
           {/* 右侧：翻译结果展示 */}
-          <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8
-            border border-white/20 shadow-2xl min-h-[600px]">
+          <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl p-8 
+            border border-white/20 shadow-2xl flex flex-col h-[80vh]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-medium">翻译记录</h2>
               {isClient && (
@@ -417,16 +417,15 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <MessagePanel 
-              messages={messages}
-              isTranslating={isTranslating}
-              isClient={isClient}
-            />
-            {isClient && (
-              <div className="mt-4 text-xs text-gray-400">
-                Messages count: {messages.length}
-              </div>
-            )}
+            
+            {/* 添加translation-record类名 */}
+            <div className="translation-record flex-1">
+              <MessagePanel 
+                messages={messages}
+                isTranslating={isTranslating}
+                isClient={isClient}
+              />
+            </div>
           </div>
         </div>
 
