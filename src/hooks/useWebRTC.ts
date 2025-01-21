@@ -23,6 +23,9 @@ export function useWebRTC(onSpeechResult?: (text: string) => Promise<void>): Use
   // 添加音频元素ref
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
+  // 在文件顶部添加 disconnectRef
+  const disconnectRef = useRef<(() => void) | null>(null);
+
   // 重置所有状态和连接
   const resetConnection = useCallback(() => {
     if (!webRTCServiceRef.current) return;
@@ -43,6 +46,36 @@ export function useWebRTC(onSpeechResult?: (text: string) => Promise<void>): Use
     setIsConnected(false);
     setError(null);
   }, [audioStream]);
+
+  const disconnect = useCallback(() => {
+    if (!webRTCServiceRef.current) return;
+
+    try {
+      const webRTCService = webRTCServiceRef.current;
+      
+      // 停止所有音频轨道
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+      
+      // 断开 WebRTC 连接
+      webRTCService.disconnect();
+      
+      // 重置所有状态
+      resetConnection();
+      
+    } catch (err) {
+      console.error('Disconnect failed:', err);
+      setError(err instanceof Error ? err : new Error('Failed to disconnect'));
+    }
+  }, [audioStream, resetConnection]);
+
+  // 移到 disconnect 定义之后
+  useEffect(() => {
+    disconnectRef.current = disconnect;
+  }, [disconnect]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -86,7 +119,8 @@ export function useWebRTC(onSpeechResult?: (text: string) => Promise<void>): Use
         audioElementRef.current = null;
         console.log('Cleaned up audio element');
       }
-      disconnect();
+      // 使用 disconnectRef.current 替代直接调用 disconnect
+      disconnectRef.current?.();
     };
   }, []);
 
@@ -129,31 +163,6 @@ export function useWebRTC(onSpeechResult?: (text: string) => Promise<void>): Use
       resetConnection();
     }
   }, [resetConnection]);
-
-  const disconnect = useCallback(() => {
-    if (!webRTCServiceRef.current) return;
-
-    try {
-      const webRTCService = webRTCServiceRef.current;
-      
-      // 停止所有音频轨道
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => {
-          track.stop();
-        });
-      }
-      
-      // 断开 WebRTC 连接
-      webRTCService.disconnect();
-      
-      // 重置所有状态
-      resetConnection();
-      
-    } catch (err) {
-      console.error('Disconnect failed:', err);
-      setError(err instanceof Error ? err : new Error('Failed to disconnect'));
-    }
-  }, [audioStream, resetConnection]);
 
   const startRecording = useCallback(() => {
     if (webRTCServiceRef.current) {
