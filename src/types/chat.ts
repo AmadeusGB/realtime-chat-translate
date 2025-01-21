@@ -1,13 +1,17 @@
 export type MessageRole = 'user' | 'assistant';
+export type Language = 'zh' | 'en';
 
 export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
+  originalText: string;
+  translatedText?: string;
   timestamp: number;
-  originalText?: string; // 原始文本
-  translatedText?: string; // 翻译后的文本
-  isPending?: boolean; // 是否正在处理中
+  isPending: boolean;
+  isChineseInput?: boolean;
+  sourceLanguage: Language;
+  targetLanguage: Language;
 }
 
 export interface ChatState {

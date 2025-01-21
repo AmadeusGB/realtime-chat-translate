@@ -32,21 +32,21 @@ export default function TranslationPanel({ messages, isTranslating, isClient }: 
         {messages.map((message, index) => (
           <div key={message.id}>
             <div className="message">
-              {/* 英文消息 */}
+              {/* 源语言消息 */}
               <div className="flex gap-3 mb-4">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                  en
+                  {message.sourceLanguage}
                 </div>
                 <div className="flex-1 min-h-[2rem] flex items-center">
                   {message.originalText}
                 </div>
               </div>
               
-              {/* 中文翻译 */}
+              {/* 目标语言翻译 */}
               {message.translatedText && (
                 <div className="flex gap-3 mb-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium">
-                    zh
+                    {message.targetLanguage}
                   </div>
                   <div className="flex-1 min-h-[2rem] flex items-center">
                     {message.translatedText}

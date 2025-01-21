@@ -2,23 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { ChatMessage } from '@/types/chat';
+import { ChatMessage, Language, MessageRole } from '@/types/chat';
 import AudioControls from '@/components/AudioControls';
 import useWebRTC from '@/hooks/useWebRTC';
 import debounce from 'lodash/debounce';
 import { saveAs } from 'file-saver';  // 需要先安装: npm install file-saver @types/file-saver
 import ModelSelector from '@/components/ModelSelector';
-
-// 定义缓冲区接口
-interface SpeechBuffer {
-  text: string;
-  timestamp: number;
-}
-
-// 添加 Message 接口定义
-interface Message extends ChatMessage {
-  isChineseInput?: boolean;
-}
+import LanguageSelector from '@/components/LanguageSelector';
+import { generateUniqueId } from '@/utils/messageUtils';
 
 interface TranslationPanelProps {
   messages: ChatMessage[]
@@ -27,7 +18,7 @@ interface TranslationPanelProps {
 }
 
 function MessagePanel({ messages, isTranslating, isClient }: TranslationPanelProps) {
-  const [messageMap, setMessageMap] = useState<Map<string, Message>>(new Map());
+  const [messageMap, setMessageMap] = useState<Map<string, ChatMessage>>(new Map());
 
   useEffect(() => {
     console.log('Processing message:', messages);
@@ -111,6 +102,8 @@ function MessagePanel({ messages, isTranslating, isClient }: TranslationPanelPro
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]); // 初始为空数组
+  const [sourceLanguage, setSourceLanguage] = useState<Language>('zh');
+  const [targetLanguage, setTargetLanguage] = useState<Language>('en');
   
   // 添加客户端初始化 effect
   useEffect(() => {
@@ -132,9 +125,9 @@ export default function Home() {
   const messageBuffer = useRef<{[key: string]: ChatMessage}>({});
   const [currentModel, setCurrentModel] = useState('gpt-4o-mini-realtime-preview');
 
-  // 创建一个防抖的翻译函数
+  // 修改 debouncedTranslate 的定义
   const debouncedTranslate = useCallback(
-    debounce(async (text: string) => {
+    debounce(async (text: string, isChineseInput: boolean) => {
       try {
         const response = await fetch('/api/translate', {
           method: 'POST',
@@ -143,8 +136,8 @@ export default function Home() {
           },
           body: JSON.stringify({ 
             text,
-            from: 'en',
-            to: 'zh'
+            from: isChineseInput ? 'zh' : 'en',
+            to: isChineseInput ? 'en' : 'zh'
           })
         });
         
@@ -164,7 +157,9 @@ export default function Home() {
               originalText: text,
               translatedText: data.translation,
               timestamp: Date.now(),
-              isPending: false
+              isPending: false,
+              sourceLanguage: sourceLanguage,
+              targetLanguage: targetLanguage
             }];
           }
           
@@ -175,7 +170,9 @@ export default function Home() {
                   content: text,
                   originalText: text,
                   translatedText: data.translation,
-                  isPending: false
+                  isPending: false,
+                  sourceLanguage: sourceLanguage,
+                  targetLanguage: targetLanguage
                 }
               : msg
           );
@@ -184,75 +181,40 @@ export default function Home() {
         console.error('[Page] Translation error:', error);
       }
     }, 1000),
-    []
+    [sourceLanguage, targetLanguage]
   );
 
+  // 修改 handleSpeechResult 中的调用
   const handleSpeechResult = useCallback(async (text: string) => {
-    // 忽略单个标点符号
-    if (text.trim().length <= 1) return;
-    
-    // 检测输入语言
-    const isChineseInput = /[\u4e00-\u9fa5]/.test(text);
-    
-    // 修改增量更新的判断逻辑
-    if (!text.endsWith('.') && !text.endsWith('?') && !text.endsWith('!') && 
-        !text.endsWith('。') && !text.endsWith('？') && !text.endsWith('！') && 
-        !text.includes('->')) {
-      setMessages(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.isPending) {
-          return prev.map(msg => 
-            msg.id === lastMsg.id 
-              ? {...msg, originalText: text}
-              : msg
-          );
-        }
-        return prev;
-      });
+    // 过滤掉只包含标点符号的消息
+    if (/^[.,。、！？!?]+$/.test(text.trim())) {
       return;
     }
 
-    // 生成新消息 ID
-    const messageId = Date.now().toString();
+    const messageId = generateUniqueId();
+    const isChineseInput = /[\u4e00-\u9fa5]/.test(text);
     
-    // 创建新消息
-    const message: ChatMessage = {
-      id: messageId,
-      role: 'user',
-      content: text,
-      originalText: text,
-      translatedText: undefined,
-      timestamp: Date.now(),
-      isPending: true
-    };
-    
-    setMessages(prev => [...prev, message]);
-    
-    // 调用翻译 API
-    try {
-      const response = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text,
-          from: isChineseInput ? 'zh' : 'en',
-          to: isChineseInput ? 'en' : 'zh'
-        })
-      });
+    setMessages(prev => {
+      const lastMsg = prev[prev.length - 1];
+      if (lastMsg && lastMsg.originalText === text) {
+        return prev;
+      }
       
-      if (!response.ok) throw new Error('Translation failed');
-      
-      const { translation } = await response.json();
-      
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId 
-          ? {...msg, translatedText: translation, isPending: false}
-          : msg
-      ));
-    } catch (error) {
-      console.error('Translation error:', error);
-    }
-  }, []);
+      return [...prev, {
+        id: messageId,
+        role: 'user',
+        content: text,
+        originalText: text,
+        timestamp: Date.now(),
+        isChineseInput,
+        isPending: false,
+        sourceLanguage,
+        targetLanguage
+      }];
+    });
+
+    await debouncedTranslate(text, isChineseInput);  // 传入isChineseInput参数
+  }, [sourceLanguage, targetLanguage, debouncedTranslate]);
 
   const { 
     isConnected, 
@@ -369,6 +331,35 @@ export default function Home() {
     }
   }, []);
 
+  // 添加处理函数
+  const handleSourceLanguageChange = (lang: string) => setSourceLanguage(lang as Language);
+  const handleTargetLanguageChange = (lang: string) => setTargetLanguage(lang as Language);
+
+  const translate = async (messageId: string, text: string, isChineseInput: boolean) => {
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          text,
+          from: isChineseInput ? 'zh' : 'en',
+          to: isChineseInput ? 'en' : 'zh'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
+
+      const data = await response.json();
+      // ... 处理翻译结果的代码 ...
+    } catch (error) {
+      console.error('[Page] Translation error:', error);
+    }
+  };
+
   return (
     <main className="min-h-screen relative overflow-hidden bg-gradient-animate">
       {/* 装饰性背景元素 */}
@@ -401,6 +392,13 @@ export default function Home() {
                 currentModel={currentModel}
                 onModelChange={handleModelChange}
                 disabled={isRecording}
+              />
+              <LanguageSelector
+                sourceLanguage={sourceLanguage}
+                targetLanguage={targetLanguage}
+                onSourceLanguageChange={handleSourceLanguageChange}
+                onTargetLanguageChange={handleTargetLanguageChange}
+                disabled={false}
               />
               <AudioControls 
                 isConnected={isConnected}
